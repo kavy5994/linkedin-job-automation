@@ -68,45 +68,38 @@ class LinkedInJobScraper:
             self.driver.save_screenshot("login_failure.png")
             return False
     
-    def scrape_jobs(self, keyword="Business Developer", location="Remote", max_pages=3):
-        base_url = f"https://www.linkedin.com/jobs/search/?keywords={keyword}&location={location}"
+    def scrape_jobs(self, keyword="Business Developer", location="Remote", max_jobs=10):
+        url = f"https://www.linkedin.com/jobs/search/?keywords={keyword}&location={location}"
+        self.driver.get(url)
+        time.sleep(3)
         
-        all_jobs = []
-        
-        try:
-            for page in range(max_pages):
-                current_url = f"{base_url}&start={page*25}"
-                self.driver.get(current_url)
-                time.sleep(2)  # Initial load
+        jobs = []
+        listings = self.wait.until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".jobs-search__results-list li"))
+        )[:max_jobs]  # Only take the first 10 listings
+    
+        for job in listings:
+            try:
+                title = job.find_element(By.CSS_SELECTOR, "h3").text.strip()
+                company = job.find_element(By.CSS_SELECTOR, "h4").text.strip()
+                url = job.find_element(By.CSS_SELECTOR, "a").get_attribute("href").split('?')[0]
                 
-                # Scroll to load all jobs
-                self._scroll_page()
+                jobs.append({
+                    "JobTitle": title,
+                    "Company": company,
+                    "JobURL": url,
+                    "Status": "Not Applied"
+                })
                 
-                # Get job listings
-                listings = self.wait.until(
-                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".jobs-search__results-list li"))
-                )
-                
-                for job in listings:
-                    try:
-                        job_data = self._extract_job_data(job)
-                        if job_data:
-                            all_jobs.append(job_data)
-                    except Exception as e:
-                        print(f"Error extracting job: {str(e)}")
-                        continue
-                
-                print(f"Page {page+1} completed. Found {len(listings)} listings.")
-                
-                # Check if we've reached the end
-                if not self._has_next_page():
+                # Stop if we have 10 jobs
+                if len(jobs) >= 10:
                     break
                     
-        except Exception as e:
-            print(f"Scraping error: {str(e)}")
-            self.driver.save_screenshot("scraping_error.png")
+            except Exception as e:
+                print(f"Error processing job: {e}")
+                continue
         
-        return all_jobs
+        return jobs
     
     def _scroll_page(self):
         """Scroll to load all jobs on the page"""
@@ -162,7 +155,7 @@ class LinkedInJobScraper:
 # Usage example:
 if __name__ == "__main__":
     scraper = LinkedInJobScraper()
-    if scraper.login("kavyarajee16@gmail.com", "Sri_Linkedin@5"):
+    if scraper.login("):
         jobs = scraper.scrape_jobs(keyword="Business Developer", location="Remote", max_pages=1)
         
         # Save just the first 10 jobs
