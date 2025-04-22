@@ -1,0 +1,40 @@
+import csv
+from datetime import datetime
+import csv
+from datetime import datetime
+
+def save_first_10_jobs(self, jobs, filename=None):
+    # Take only the first 10 jobs
+    first_10 = jobs[:10]
+    
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"first_10_linkedin_jobs_{timestamp}.csv"
+    
+    if not first_10:
+        print("No jobs to save")
+        return
+    
+    keys = first_10[0].keys()
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as output_file:
+        dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(first_10)
+    
+    print(f"Saved first 10 jobs to {filename}")
+
+    
+def save_to_csv(self, jobs, filename=None):
+    if not filename:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"linkedin_jobs_{timestamp}.csv"
+    
+    keys = jobs[0].keys() if jobs else []
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as output_file:
+        dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(jobs)
+    
+    print(f"Saved {len(jobs)} jobs to {filename}")

@@ -1,5 +1,6 @@
-from pyairtable import Api
 import os
+from pyairtable import Api
+
 
 class AirtableManager:
     def __init__(self):
