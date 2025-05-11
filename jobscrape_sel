@@ -1,0 +1,153 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+import pandas as pd
+import time
+import os
+
+def linkedin_job_scraper(email, password, job_title, location, max_jobs=10, headless=False):
+    """
+    Complete LinkedIn job scraper with automatic ChromeDriver setup
+    
+    Args:
+        email (str): LinkedIn email
+        password (str): LinkedIn password
+        job_title (str): Job title to search
+        location (str): Location to search
+        max_jobs (int): Max jobs to collect
+        headless (bool): Run browser invisibly
+    """
+    
+    # Setup Chrome options
+    chrome_options = webdriver.ChromeOptions()
+    if headless:
+        chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--disable-notifications")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    
+    try:
+        # Automatic ChromeDriver installation
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()),
+            options=chrome_options
+        )
+        
+        # Login to LinkedIn
+        print("Logging into LinkedIn...")
+        driver.get("https://www.linkedin.com/login")
+        
+        # Wait for elements and input credentials
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "kavyarajee16@gmail.com"))
+        ).send_keys(email)
+        
+        driver.find_element(By.ID, "Sri_Linkedin@5").send_keys(password)
+        driver.find_element(By.XPATH, "//button[@type='submit']").click()
+        
+        # Verify login
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//*[contains(@class, 'global-nav__me-photo')]"))
+            )
+            print("Login successful!")
+        except TimeoutException:
+            raise Exception("Login failed - check credentials or solve CAPTCHA")
+        
+        # Search for jobs
+        print(f"Searching for {job_title} jobs in {location}...")
+        search_url = f"https://www.linkedin.com/jobs/search/?keywords={job_title.replace(' ', '%20')}&location={location.replace(' ', '%20')}"
+        driver.get(search_url)
+        time.sleep(3)
+        
+        # Scroll to load jobs
+        print("Loading job listings...")
+        last_height = driver.execute_script("return document.body.scrollHeight")
+        while True:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
+            new_height = driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+            
+            # Early exit if we have enough jobs
+            current_jobs = driver.find_elements(By.CSS_SELECTOR, ".jobs-search-results__list-item")
+            if len(current_jobs) >= max_jobs:
+                break
+        
+        # Collect job data
+        print(f"Collecting {max_jobs} jobs...")
+        jobs = []
+        job_elements = driver.find_elements(By.CSS_SELECTOR, ".jobs-search-results__list-item")[:max_jobs]
+        
+        for idx, job in enumerate(job_elements, 1):
+            try:
+                print(f"Processing job {idx}/{len(job_elements)}...")
+                driver.execute_script("arguments[0].scrollIntoView();", job)
+                job.click()
+                time.sleep(1.5)
+                
+                # Extract details
+                title = job.find_element(By.CSS_SELECTOR, ".job-card-list__title").text.strip()
+                company = job.find_element(By.CSS_SELECTOR, ".job-card-container__company-name").text.strip()
+                location = job.find_element(By.CSS_SELECTOR, ".job-card-container__metadata-item").text.strip()
+                link = job.find_element(By.CSS_SELECTOR, ".job-card-list__title").get_attribute("href").split('?')[0]
+                
+                # Get additional details
+                try:
+                    posted = driver.find_element(By.CSS_SELECTOR, ".jobs-unified-top-card__posted-date").text.strip()
+                except NoSuchElementException:
+                    posted = "Unknown"
+                
+                try:
+                    desc = driver.find_element(By.CSS_SELECTOR, ".jobs-description__content").text[:500] + "..."
+                except NoSuchElementException:
+                    desc = "Description not available"
+                
+                jobs.append({
+                    "Title": title,
+                    "Company": company,
+                    "Location": location,
+                    "Posted": posted,
+                    "Description": desc,
+                    "Link": link
+                })
+                
+            except Exception as e:
+                print(f"Error processing job {idx}: {str(e)}")
+                continue
+        
+        # Save to Excel
+        if jobs:
+            df = pd.DataFrame(jobs)
+            filename = f"LinkedIn_Jobs_{job_title.replace(' ', '_')}_{int(time.time())}.xlsx"
+            df.to_excel(filename, index=False)
+            print(f"\n✅ Success! Saved {len(jobs)} jobs to {filename}")
+            try:
+                os.startfile(filename)  # Works on Windows
+            except:
+                print(f"File saved at: {os.path.abspath(filename)}")
+        else:
+            print("\n❌ No jobs found")
+            
+    except Exception as e:
+        print(f"\n⚠️ Error: {str(e)}")
+    finally:
+        if 'driver' in locals():
+            driver.quit()
+
+# Example usage
+if __name__ == "__main__":
+    linkedin_job_scraper(
+        email="your_email@example.com",  # Replace with your LinkedIn email
+        password="your_password",       # Replace with your LinkedIn password
+        job_title="Data Analyst",
+        location="United States",
+        max_jobs=15,
+        headless=False  # Set to True to run browser in background
+    )
