@@ -21,7 +21,13 @@ def scrape_linkedin_jobs(email, password, keywords, location, max_jobs=10):
     # Job Search
     search_url = f"https://www.linkedin.com/jobs/search/?keywords={keywords}&location={location}"
     driver.get(search_url)
-    time.sleep(3)
+    WebDriverWait(driver, 10).until(
+    EC.presence_of_element_located((By.CSS_SELECTOR, ".jobs-search-results__list-item"))
+)
+    
+    # Add anti-detection measures
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     
     # Scroll to load jobs
     jobs = []
@@ -29,7 +35,9 @@ def scrape_linkedin_jobs(email, password, keywords, location, max_jobs=10):
     
     for job in job_elements:
         job.click()
-        time.sleep(1)
+        WebDriverWait(driver, 10).until(
+    EC.presence_of_element_located((By.CSS_SELECTOR, ".jobs-search-results__list-item"))
+)
         title = driver.find_element(By.CSS_SELECTOR, ".jobs-unified-top-card__job-title").text
         company = driver.find_element(By.CSS_SELECTOR, ".jobs-unified-top-card__company-name").text
         jobs.append({"Title": title, "Company": company})

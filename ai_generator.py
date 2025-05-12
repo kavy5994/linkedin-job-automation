@@ -18,10 +18,26 @@ def generate_cover_letter(job_title, company, skills):
         temperature=0.7
     )
     return response.choices[0].message.content
+# Add to ai_generator.py
+import os
+
+def save_cover_letter(content, job_title, company):
+    os.makedirs("cover_letters", exist_ok=True)
+    filename = f"cover_letters/{company}_{job_title[:20]}.txt".replace("/", "_")
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+    return filename
+
+# Usage:
+cover_text = generate_cover_letter(...)
+save_cover_letter(cover_text, "Data Scientist", "Google")
+
 
 # Example
-print(generate_cover_letter(
+cover_text = generate_cover_letter(
     job_title="Data Scientist",
     company="Google",
     skills=["Python", "Machine Learning", "SQL"]
-))
+)
+
+save_cover_letter(cover_text, "Data Scientist", "Google")
